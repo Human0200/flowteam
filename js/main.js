@@ -54,9 +54,65 @@ document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
 const termBody = document.getElementById("terminal-body");
 const termOptions = document.getElementById("terminal-options");
 let termName = "";
+let termChannel = "";
+let termChannelLabel = "";
 let termContact = "";
 let termTask = "";
 let termCaptcha = null;
+let termSubmitting = false;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const TERM_CHANNELS = [
+  {
+    label: "MAX",
+    channel: "max",
+    ask: "Напишите ник или ID в MAX.",
+    placeholder: "max id / @ник",
+  },
+  {
+    label: "Telegram",
+    channel: "telegram",
+    ask: "Напишите Telegram: @username или ссылку.",
+    placeholder: "@username",
+  },
+  {
+    label: "WhatsApp",
+    channel: "whatsapp",
+    ask: "Напишите номер WhatsApp.",
+    placeholder: "+7…",
+  },
+  {
+    label: "Email",
+    channel: "email",
+    ask: "Напишите email.",
+    placeholder: "name@email.com",
+  },
+  {
+    label: "Other",
+    channel: "other",
+    ask: "Напишите удобный способ связи.",
+    placeholder: "телефон / ссылка / мессенджер",
+  },
+];
+
+const termGreeting = document.getElementById("terminal-greeting");
+if (termGreeting && termOptions) {
+  const full = termGreeting.textContent;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    termOptions.hidden = false;
+  } else {
+    termGreeting.textContent = "";
+    let i = 0;
+    const typer = window.setInterval(() => {
+      i += 1;
+      termGreeting.textContent = full.slice(0, i);
+      if (i >= full.length) {
+        window.clearInterval(typer);
+        termOptions.hidden = false;
+      }
+    }, 35);
+  }
+}
 
 const UNITS = ["", "один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять"];
 
@@ -91,6 +147,39 @@ function termMsg(cls, meta, text) {
   return div;
 }
 
+function termTypeMsg(cls, meta, text, done) {
+  const div = document.createElement("div");
+  div.className = `msg ${cls}`;
+  if (meta) {
+    const m = document.createElement("span");
+    m.className = "msg-meta";
+    m.textContent = meta;
+    div.appendChild(m);
+  }
+  const t = document.createElement("span");
+  div.appendChild(t);
+  termBody.appendChild(div);
+  div.scrollIntoView({ block: "nearest" });
+
+  if (reduceMotion) {
+    t.textContent = text;
+    if (done) done();
+    return div;
+  }
+
+  let i = 0;
+  const typer = setInterval(() => {
+    i += 1;
+    t.textContent = text.slice(0, i);
+    if (i % 5 === 0) div.scrollIntoView({ block: "nearest" });
+    if (i >= text.length) {
+      clearInterval(typer);
+      if (done) done();
+    }
+  }, 22);
+  return div;
+}
+
 function termPrompt(html) {
   const old = document.getElementById("terminal-line");
   if (old) old.remove();
@@ -104,18 +193,113 @@ function termPrompt(html) {
   el.scrollIntoView({ block: "nearest" });
 }
 
+function termClearLine() {
+  const old = document.getElementById("terminal-line");
+  if (old) old.remove();
+}
+
+function termShowChannelOptions() {
+  document.getElementById("terminal-channel-options")?.remove();
+  termClearLine();
+  const wrap = document.createElement("div");
+  wrap.className = "terminal-options";
+  wrap.id = "terminal-channel-options";
+  TERM_CHANNELS.forEach((ch) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "terminal-option";
+    btn.dataset.channel = ch.channel;
+    btn.textContent = ch.label;
+    btn.addEventListener("click", () => {
+      wrap.remove();
+      termChannel = ch.channel;
+      termChannelLabel = ch.label;
+      termMsg("msg-in", "client · вы", ch.label);
+      termTypeMsg("msg-out", "flowteam · agent", ch.ask, () =>
+        termPrompt(
+          `<span class="prompt">$</span> <input class="terminal-input" type="text" placeholder="${ch.placeholder}" autocomplete="off" />`
+        )
+      );
+    });
+    wrap.appendChild(btn);
+  });
+  termBody.appendChild(wrap);
+  wrap.scrollIntoView({ block: "nearest" });
+}
+
+function buildTermContactFields() {
+  const c = {
+    name: termName,
+    email: "",
+    phone: "",
+    telegram: "",
+    max_id: "",
+    whatsapp: "",
+  };
+  const v = termContact.trim();
+  switch (termChannel) {
+    case "telegram": {
+      const tg = v.match(/t\.me\/([\w]{4,})/i) || v.match(/@?([\w]{4,})/);
+      c.telegram = tg ? tg[1] : v.replace(/^@/, "");
+      break;
+    }
+    case "whatsapp": {
+      const digits = v.replace(/[^\d+]/g, "");
+      c.whatsapp = digits.length >= 7 ? digits : v;
+      c.phone = c.whatsapp;
+      break;
+    }
+    case "max":
+      c.max_id = v.replace(/^@/, "");
+      break;
+    case "email":
+      c.email = v;
+      break;
+    default: {
+      const parsed = parseContact(v);
+      Object.assign(c, parsed, { name: termName });
+      break;
+    }
+  }
+  return c;
+}
+
+async function submitTermLead() {
+  const contact = buildTermContactFields();
+  const channelNote = termChannelLabel || termChannel || "не указан";
+  const payload = {
+    title: `Терминал: ${termName} — ${termTask.slice(0, 80)}`,
+    description: `Источник: терминал\nИмя: ${termName}\nКанал: ${channelNote}\nКонтакт: ${termContact}\n\n${termTask}`,
+    contact,
+  };
+  const r = await fetch(CRM_API, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+}
+
 if (termBody && termOptions) {
   termOptions.querySelectorAll(".terminal-option").forEach((btn) => {
     btn.addEventListener("click", () => {
       const choice = btn.dataset.choice;
       termOptions.remove();
       termMsg("msg-in", "client · вы", choice);
-      setTimeout(() => {
-        termMsg("msg-out", "flowteam · agent", `Отличный выбор — ${choice}. Как вас зовут?`);
-        termPrompt(
-          '<span class="prompt">$</span> <input class="terminal-input" type="text" placeholder="имя" autocomplete="off" />'
-        );
-      }, 700);
+      termTypeMsg(
+        "msg-out",
+        "flowteam · agent",
+        choice === "Другое"
+          ? "Без проблем — разберёмся вместе. Как вас зовут?"
+          : `Отличный выбор — ${choice}. Как вас зовут?`,
+        () =>
+          termPrompt(
+            '<span class="prompt">$</span> <input class="terminal-input" type="text" placeholder="имя" autocomplete="off" />'
+          )
+      );
     });
   });
 
@@ -123,64 +307,79 @@ if (termBody && termOptions) {
     if (e.key !== "Enter" || !e.target.classList.contains("terminal-input")) return;
     e.preventDefault();
     const value = e.target.value.trim();
-    if (!value) return;
+    if (!value || termSubmitting) return;
 
     if (!termName) {
       termName = value;
       termMsg("msg-in", "client · вы", value);
-      setTimeout(() => {
-        termMsg(
-          "msg-out",
-          "flowteam · agent",
-          `Приятно познакомиться, ${termName}. Куда ответить — Telegram, WhatsApp или другой способ связи? Просто напишите его в наш терминал.`
-        );
-        termPrompt(
-          '<span class="prompt">$</span> <input class="terminal-input" type="text" placeholder="способ связи" autocomplete="off" />'
-        );
-      }, 700);
+      termTypeMsg(
+        "msg-out",
+        "flowteam · agent",
+        `Приятно познакомиться, ${termName}. Куда ответить? Выберите канал ниже — затем напишите контакт в терминал.`,
+        () => termShowChannelOptions()
+      );
+    } else if (!termChannel) {
+      return;
     } else if (!termContact) {
       termContact = value;
       termMsg("msg-in", "client · вы", value);
-      setTimeout(() => {
-        termMsg(
-          "msg-out",
-          "flowteam · agent",
-          "Опишите кратко задачу — что нужно собрать или автоматизировать."
-        );
-        termPrompt(
-          '<span class="prompt">$</span> <input class="terminal-input" type="text" placeholder="задача в паре слов" autocomplete="off" />'
-        );
-      }, 700);
+      termTypeMsg(
+        "msg-out",
+        "flowteam · agent",
+        "Опишите кратко задачу — что нужно собрать или автоматизировать.",
+        () =>
+          termPrompt(
+            '<span class="prompt">$</span> <input class="terminal-input" type="text" placeholder="задача в паре слов" autocomplete="off" />'
+          )
+      );
     } else if (!termTask) {
       termTask = value;
       termMsg("msg-in", "client · вы", value);
-      setTimeout(() => {
-        termMsg(
-          "msg-out",
-          "flowteam · agent",
-          "Мне нужно удостовериться, что вы не бот. Решите простой пример:"
-        );
-        termNewCaptcha();
-        termCaptchaPrompt();
-      }, 700);
+      termTypeMsg(
+        "msg-out",
+        "flowteam · agent",
+        "Мне нужно удостовериться, что вы не бот. Решите простой пример:",
+        () => {
+          termNewCaptcha();
+          termCaptchaPrompt();
+        }
+      );
     } else {
       const answer = Number.parseInt(value, 10);
       if (!Number.isNaN(answer) && termCaptcha && answer === termCaptcha.answer) {
         termMsg("msg-in", "client · вы", value);
-        setTimeout(() => {
-          termMsg(
-            "msg-out",
-            "flowteam · agent",
-            `Готово, ${termName}! Ответим в ${termContact} в течение дня.`
-          );
-          termPrompt(
-            '<span class="cursor-line"><span class="prompt">$</span> заявка принята · <a href="#contact">обсудить проект →</a></span>'
-          );
-        }, 700);
+        termSubmitting = true;
+        termClearLine();
+        termTypeMsg("msg-out", "flowteam · agent", "Отправляем заявку…", async () => {
+          try {
+            await submitTermLead();
+            termTypeMsg(
+              "msg-out",
+              "flowteam · agent",
+              `Готово, ${termName}! Ответим в ${termChannelLabel || "указанный канал"} (${termContact}) в течение дня.`,
+              () =>
+                termPrompt(
+                  '<span class="cursor-line"><span class="prompt">$</span> заявка принята · ждите ответа</span>'
+                )
+            );
+          } catch (err) {
+            termSubmitting = false;
+            termTypeMsg(
+              "msg-error",
+              null,
+              "Не удалось отправить. Попробуйте ещё раз или напишите hello@flowteam.ru.",
+              () => {
+                termNewCaptcha();
+                termCaptchaPrompt();
+              }
+            );
+          }
+        });
       } else {
-        termMsg("msg-error", null, "Неверный ответ. Ещё раз:");
-        termNewCaptcha();
-        termCaptchaPrompt();
+        termTypeMsg("msg-error", null, "Неверный ответ. Ещё раз:", () => {
+          termNewCaptcha();
+          termCaptchaPrompt();
+        });
       }
     }
   });
@@ -339,7 +538,6 @@ document.addEventListener("keydown", (e) => {
   else closeWork();
 });
 
-const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const counters = document.querySelectorAll(".trust-num[data-count]");
 
 if (!reduceMotion && counters.length) {

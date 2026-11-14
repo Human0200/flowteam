@@ -496,6 +496,18 @@ main {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+  animation: options-in 0.4s var(--ease);
+}
+
+.terminal-options[hidden] {
+  display: none;
+}
+
+@keyframes options-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .terminal-option {
@@ -1424,6 +1436,10 @@ main {
   }
 
   .lightbox-img {
+    animation: none;
+  }
+
+  .terminal-options {
     animation: none;
   }
 

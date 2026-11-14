@@ -17,10 +17,14 @@
     <meta name="author" content="FlowTeam" />
     <link rel="canonical" href="https://flowteam24.ru/" />
 
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="favicon-180.png" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="https://flowteam24.ru/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="48x48" href="https://flowteam24.ru/favicon-48.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="https://flowteam24.ru/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="https://flowteam24.ru/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="https://flowteam24.ru/favicon-180.png" />
+    <link rel="shortcut icon" href="https://flowteam24.ru/favicon.ico" />
+    <link rel="manifest" href="https://flowteam24.ru/site.webmanifest" />
     <link rel="preload" as="font" type="font/woff2" href="fonts/mono-400.woff2" crossorigin />
 
     <meta property="og:type" content="website" />
@@ -51,7 +55,7 @@
         "@id": "https://flowteam24.ru/#org",
         "name": "FlowTeam",
         "url": "https://flowteam24.ru/",
-        "logo": "https://flowteam24.ru/favicon.svg",
+        "logo": "https://flowteam24.ru/favicon-512.png",
         "email": "hello@flowteam.ru",
         "description": "Студия цифровых продуктов: CRM, боты, сайты и автоматизации. Работаем 24/7.",
         "contactPoint": {
@@ -173,7 +177,7 @@
       }
     </script>
 
-    <link rel="stylesheet" href="css/styles.css?v=4" />
+    <link rel="stylesheet" href="css/styles.css?v=5" />
   </head>
   <body>
     <div class="grid-bg" aria-hidden="true"></div>
@@ -235,13 +239,20 @@
             </div>
             <div class="terminal-body" id="terminal-body">
               <div class="msg msg-system">
-                <span class="cursor-line"><span class="prompt">$</span> Что хотите собрать?<span class="blink">_</span></span>
+                <span class="cursor-line"
+                  ><span class="prompt">$</span>
+                  <span id="terminal-greeting">Что хотите собрать? Вы можете выбрать систему нажав на кнопки ниже</span><span
+                    class="blink"
+                    >_</span
+                  ></span
+                >
               </div>
-              <div class="terminal-options" id="terminal-options">
+              <div class="terminal-options" id="terminal-options" hidden>
                 <button class="terminal-option" type="button" data-choice="сайты">сайты</button>
                 <button class="terminal-option" type="button" data-choice="CRM">CRM</button>
                 <button class="terminal-option" type="button" data-choice="боты">боты</button>
                 <button class="terminal-option" type="button" data-choice="автоматизации">автоматизации</button>
+                <button class="terminal-option" type="button" data-choice="Другое">Другое</button>
               </div>
             </div>
           </div>
@@ -513,6 +524,6 @@
       <img class="lightbox-img" id="lightbox-img" alt="" />
     </div>
 
-    <script src="js/main.js?v=8"></script>
+    <script src="js/main.js?v=13"></script>
   </body>
 </html>
