@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+.idea/
+.vscode/
+*.log
+# dev-прокси с CRM-токеном — в репозиторий не коммитится
+server.py
